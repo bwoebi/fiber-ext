@@ -12,6 +12,7 @@ if test "$PHP_FIBER" != "no"; then
   
   LDFLAGS+="-z now"
   
-  PHP_NEW_EXTENSION(fiber, fiber_stack.c fiber_posix.c fiber.c, $ext_shared,, \\$(FIBER_CFLAGS))
+  PHP_NEW_EXTENSION(fiber, fiber_stack.c fiber_posix.c php_fiber.c, $ext_shared,, \\$(FIBER_CFLAGS))
   PHP_SUBST(FIBER_CFLAGS)
+  PHP_ADD_MAKEFILE_FRAGMENT
 fi
