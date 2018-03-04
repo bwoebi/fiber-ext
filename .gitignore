@@ -16,6 +16,7 @@ Vagrantfile
 *.php
 
 .project
+.settings
 .vagrant
 
 *.tgz

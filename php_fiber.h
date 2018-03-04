@@ -13,7 +13,7 @@
   | license@php.net so we can mail you a copy immediately.               |
   +----------------------------------------------------------------------+
   | Authors: Haitao Lv <php@lvht.net>                                    |
-  |          Martin Schröder <m.schroeder2007@gmail.com>                 |
+  |          Martin SchrÃ¶der <m.schroeder2007@gmail.com>                 |
   +----------------------------------------------------------------------+
 */
 
