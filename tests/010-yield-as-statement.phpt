@@ -13,7 +13,7 @@ $f = new Fiber(function ($a) {
     Fiber::yield(1);
 });
 
-$f->resume(1);
+$f->start(1);
 $f->resume(1);
 $f->resume(1);
 ?>

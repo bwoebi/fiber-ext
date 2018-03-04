@@ -15,7 +15,7 @@ $f = new Fiber(function () {
         return Fiber::yield($e->getMessage());
     }
 });
-$f->resume();
+$f->start();
 echo $f->throw(new Exception("foo"));
 echo $f->resume("bar");
 ?>

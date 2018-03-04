@@ -13,7 +13,7 @@ $f = new Fiber(function () {
 });
 
 var_dump($f->status() == Fiber::STATUS_INIT);
-$f->resume();
+$f->start();
 var_dump($f->status() == Fiber::STATUS_SUSPENDED);
 $f->resume();
 var_dump($f->status() == Fiber::STATUS_FINISHED);
@@ -28,7 +28,7 @@ $f = new Fiber(function () {
     throw new Exception;
 });
 try {
-    $f->resume();
+    $f->start();
 } catch (Exception $e) {
 }
 var_dump($f->status() == Fiber::STATUS_DEAD);
@@ -37,6 +37,6 @@ var_dump($f->status() == Fiber::STATUS_DEAD);
 bool(true)
 bool(true)
 bool(true)
-Attempt to resume non suspended Fiber
+Non-suspended Fiber cannot be resumed
 bool(true)
 bool(true)

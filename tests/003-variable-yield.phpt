@@ -14,7 +14,7 @@ $f = new Fiber(function () {
     Fiber::yield([1, 2]);
     Fiber::yield(new stdclass);
 });
-var_dump($f->resume());
+var_dump($f->start());
 var_dump($f->resume());
 var_dump($f->resume());
 var_dump($f->resume());

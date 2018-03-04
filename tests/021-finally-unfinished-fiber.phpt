@@ -7,7 +7,7 @@ Test finally blocks are executed in unfinished fiber
 
 $f = new Fiber(function () {
     try {
-        echo "yielding - "
+        echo "yielding - ";
         Fiber::yield();
         echo "not reached";
     } finally {
@@ -15,10 +15,8 @@ $f = new Fiber(function () {
     }
 });
 
-$f->resume();
+$f->start();
 
 ?>
---XFAIL--
-This is not implemented, yet.
 --EXPECTF--
 yielding - finally

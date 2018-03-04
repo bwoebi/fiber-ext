@@ -15,7 +15,7 @@ function foo()
 $f = new Fiber(function () {
     echo foo();
 });
-$f->resume();
+$f->start();
 $f->resume('foo');
 ?>
 --EXPECTF--

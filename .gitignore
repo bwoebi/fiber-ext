@@ -10,8 +10,13 @@ missing
 mkinstalldirs
 modules
 reconf.sh
-run-tests.php
 tags
+Vagrantfile
+
+*.php
+
+.project
+.vagrant
 
 *.tgz
 *.in

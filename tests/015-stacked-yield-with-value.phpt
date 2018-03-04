@@ -17,7 +17,7 @@ $f = new Fiber(function () {
     foo();
     Fiber::yield(2);
 });
-var_dump($f->resume());
+var_dump($f->start());
 var_dump($f->resume());
 ?>
 --EXPECTF--

@@ -15,7 +15,7 @@ $f = new Fiber(function () {
         echo $e->getMessage();
     }
 });
-$f->resume();
+$f->start();
 $f->throw(new Exception("foo"));
 ?>
 --EXPECTF--

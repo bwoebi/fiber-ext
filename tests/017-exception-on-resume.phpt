@@ -11,7 +11,7 @@ if (!extension_loaded('fiber')) {
 function foo()
 {
     Fiber::yield();
-    throw new Exception();
+    throw new Exception('FOOBAR!');
 }
 
 function bar()
@@ -22,16 +22,14 @@ function bar()
 
 $f = new Fiber('bar');
 
-$f->resume();
+$f->start();
 $f->resume();
 
 try {
     $f->resume();
 } catch (\Exception $e) {
-    echo $e->getTraceAsString();
+    echo $e->getMessage();
 }
 ?>
 --EXPECTF--
-#0 %s/tests/017-exception-on-resume.php(11): foo()
-#1 (0): bar()
-#2 {main}
+FOOBAR!

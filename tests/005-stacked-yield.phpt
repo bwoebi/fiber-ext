@@ -19,7 +19,7 @@ $f = new Fiber(function () {
     Fiber::yield();
     echo "bye\n";
 });
-$f->resume();
+$f->start();
 echo "await\n";
 $f->resume();
 echo "await2\n";
