@@ -20,7 +20,7 @@
 #include "config.h"
 #endif
 
-#ifdef HAVE_VALGRIND
+#ifdef ZEND_FIBER_VALGRIND
 #include "valgrind/valgrind.h"
 #endif
 
@@ -72,7 +72,7 @@ zend_bool zend_fiber_stack_allocate(zend_fiber_stack *stack, unsigned int size)
 		return 0;
 	}
 
-#ifdef HAVE_VALGRIND
+#ifdef VALGRIND_STACK_REGISTER
 	char * base;
 
 	base = (char *) stack->pointer;
@@ -91,7 +91,7 @@ void zend_fiber_stack_free(zend_fiber_stack *stack)
 	}
 
 	if (stack->pointer != NULL) {
-#ifdef HAVE_VALGRIND
+#ifdef VALGRIND_STACK_DEREGISTER
 		VALGRIND_STACK_DEREGISTER(stack->valgrind);
 #endif
 

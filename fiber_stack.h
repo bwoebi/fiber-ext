@@ -23,7 +23,7 @@ typedef struct _zend_fiber_stack {
 	void *pointer;
 	size_t size;
 
-#ifdef HAVE_VALGRIND
+#ifdef ZEND_FIBER_VALGRIND
 	int valgrind;
 #endif
 } zend_fiber_stack;
