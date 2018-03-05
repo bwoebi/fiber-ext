@@ -100,6 +100,20 @@ static PHP_GINIT_FUNCTION(fiber)
 
 static zend_bool zend_fiber_switch_to(zend_fiber *fiber)
 {
+	zend_fiber_context root;
+
+	root = FIBER_G(root);
+
+	if (root == NULL) {
+		root = zend_fiber_create_root_context();
+
+		if (root == NULL) {
+			return 0;
+		}
+
+		FIBER_G(root) = root;
+	}
+
 	zend_fiber *prev;
 	zend_bool result;
 	zend_execute_data *exec;
@@ -111,7 +125,7 @@ static zend_bool zend_fiber_switch_to(zend_fiber *fiber)
 	prev = FIBER_G(current_fiber);
 	FIBER_G(current_fiber) = fiber;
 
-	fiber->caller = (prev == NULL) ? FIBER_G(root) : prev->context;
+	fiber->caller = (prev == NULL) ? root : prev->context;
 	result = zend_fiber_switch_context(fiber->caller, fiber->context);
 	fiber->caller = NULL;
 
@@ -586,15 +600,6 @@ static PHP_RINIT_FUNCTION(fiber)
 #if defined(ZTS) && defined(COMPILE_DL_FIBER)
 	ZEND_TSRMLS_CACHE_UPDATE();
 #endif
-
-	zend_fiber_context root;
-	root = zend_fiber_create_root_context();
-
-	if (root == NULL) {
-		return FAILURE;
-	}
-
-	FIBER_G(root) = root;
 
 	return SUCCESS;
 }
