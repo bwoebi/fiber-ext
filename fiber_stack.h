@@ -22,6 +22,10 @@
 typedef struct _zend_fiber_stack {
 	void *pointer;
 	size_t size;
+
+#ifdef HAVE_VALGRIND
+	int valgrind;
+#endif
 } zend_fiber_stack;
 
 zend_bool zend_fiber_stack_allocate(zend_fiber_stack *stack, unsigned int size);

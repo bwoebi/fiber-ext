@@ -20,6 +20,10 @@
 #include "config.h"
 #endif
 
+#ifdef HAVE_VALGRIND
+#include "valgrind/valgrind.h"
+#endif
+
 #include "php.h"
 #include "zend.h"
 
@@ -33,15 +37,17 @@ zend_bool zend_fiber_stack_allocate(zend_fiber_stack *stack, unsigned int size)
 		page_size = ZEND_FIBER_PAGESIZE;
 	}
 
-	stack->size = ((size_t) size * sizeof(void *) + page_size - 1) / page_size * page_size;
+	size_t msize;
+
+	stack->size = ((size_t) size + page_size - 1) / page_size * page_size;
 
 #ifdef ZEND_FIBER_MMAP
 
 	void *pointer;
-	size_t msize;
+
+	stack->size *= (sizeof(void *) >> 1);
 
 	msize = stack->size + ZEND_FIBER_GUARDPAGES * page_size;
-
 	pointer = mmap(0, msize, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
 	if (pointer == (void *) -1) {
@@ -58,12 +64,20 @@ zend_bool zend_fiber_stack_allocate(zend_fiber_stack *stack, unsigned int size)
 
 	stack->pointer = (void *)((char *) pointer + ZEND_FIBER_GUARDPAGES * page_size);
 #else
-	stack->pointer = emalloc(stack->size);
+	stack->pointer = emalloc_large(stack->size);
+	msize = stack->size;
 #endif
 
 	if (!stack->pointer) {
 		return 0;
 	}
+
+#ifdef HAVE_VALGRIND
+	char * base;
+
+	base = (char *) stack->pointer;
+	stack->valgrind = VALGRIND_STACK_REGISTER(base, base + msize - ZEND_FIBER_GUARDPAGES * page_size);
+#endif
 
 	return 1;
 }
@@ -77,6 +91,10 @@ void zend_fiber_stack_free(zend_fiber_stack *stack)
 	}
 
 	if (stack->pointer != NULL) {
+#ifdef HAVE_VALGRIND
+		VALGRIND_STACK_DEREGISTER(stack->valgrind);
+#endif
+
 #ifdef ZEND_FIBER_MMAP
 
 		void *address;
@@ -86,11 +104,11 @@ void zend_fiber_stack_free(zend_fiber_stack *stack)
 		len = stack->size + ZEND_FIBER_GUARDPAGES * page_size;
 
 		munmap(address, len);
-		stack->pointer = NULL;
 #else
 		efree(stack->pointer);
-		stack->pointer = NULL;
 #endif
+
+		stack->pointer = NULL;
 	}
 }
 

@@ -12,6 +12,21 @@ if test "$PHP_FIBER" != "no"; then
   
   LDFLAGS+="-z now"
   
+  SEARCH_PATH="/usr/local /usr"
+  SEARCH_FOR="/include/valgrind/valgrind.h"
+  for i in $SEARCH_PATH ; do
+    if test -r $i/$SEARCH_FOR; then
+      VALGRIND_DIR=$i
+    fi
+  done
+
+  if test -z "$VALGRIND_DIR"; then
+    AC_MSG_RESULT([not found])
+  else
+    AC_MSG_RESULT(found in $VALGRIND_DIR)
+    AC_DEFINE(HAVE_VALGRIND, 1, [ ])
+  fi
+  
   PHP_NEW_EXTENSION(fiber, fiber_stack.c fiber_posix.c php_fiber.c, $ext_shared,, \\$(FIBER_CFLAGS))
   PHP_SUBST(FIBER_CFLAGS)
   PHP_ADD_MAKEFILE_FRAGMENT
