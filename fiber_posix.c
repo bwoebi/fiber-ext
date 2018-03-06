@@ -150,7 +150,7 @@ ZEND_API void zend_fiber_destroy(zend_fiber_context ctx)
 #ifdef ZEND_FIBER_ASM
 
 void __attribute__ ((__noinline__, __regparm__(2)))
-zend_fiber_switch_context_asm(zend_fiber_context_posix *from, zend_fiber_context_posix *to);
+zend_fiber_switch_context_asm(zend_fiber_context_posix *from, zend_fiber_context_posix *to) asm("zend_fiber_switch_context_asm");
 
 asm (
 	"\t.text\n"
