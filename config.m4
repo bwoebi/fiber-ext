@@ -4,13 +4,13 @@ PHP_ARG_ENABLE(fiber, whether to enable fiber support,
 if test "$PHP_FIBER" != "no"; then
   AC_DEFINE(HAVE_FIBER, 1, [ Have fiber support ])
 
-  FIBER_CFLAGS="-z now -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1"
+  FIBER_CFLAGS=" -z now -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1"
 
   AC_CHECK_HEADER(ucontext.h, [
     FIBER_CFLAGS+=" -DHAVE_UCONTEXT_H=1"
   ])
   
-  LDFLAGS+="-z now"
+dnl  LDFLAGS+=" -z now"
   
   AC_MSG_CHECKING(for valgrind.h)
   
