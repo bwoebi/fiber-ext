@@ -159,6 +159,7 @@ static void zend_fiber_run()
 	fiber->exec->return_value = NULL;
 	fiber->exec->prev_execute_data = NULL;
 
+	EG(current_execute_data) = fiber->exec;
 	execute_ex(fiber->exec);
 
 	zend_vm_stack_destroy();
@@ -390,6 +391,10 @@ ZEND_METHOD(Fiber, throw)
 		return;
 	}
 
+	if (EG(exception)) {
+		return;
+	}
+
 	if (USED_RET()) {
 		RETURN_ZVAL(&fiber->value, 0, 0);
 	} else {
@@ -455,6 +460,10 @@ ZEND_METHOD(Fiber, yield)
 		zend_throw_exception_internal(error);
 		exec->opline++;
 
+		return;
+	}
+
+	if (EG(exception)) {
 		return;
 	}
 
