@@ -159,8 +159,9 @@ static void zend_fiber_run()
 	fiber->exec->return_value = NULL;
 	fiber->exec->prev_execute_data = NULL;
 
-	EG(current_execute_data) = fiber->exec;
 	execute_ex(fiber->exec);
+
+	zval_ptr_dtor(&fiber->fci.function_name);
 
 	zend_vm_stack_destroy();
 	fiber->stack = NULL;
@@ -172,7 +173,7 @@ static void zend_fiber_run()
 }
 
 
-static int fiber_run_opcode_handler(zend_execute_data *execute_data)
+static int fiber_run_opcode_handler(zend_execute_data *exec)
 {
 	zend_fiber *fiber;
 	zval retval;
@@ -183,8 +184,10 @@ static int fiber_run_opcode_handler(zend_execute_data *execute_data)
 	fiber->status = ZEND_FIBER_STATUS_RUNNING;
 	fiber->fci.retval = &retval;
 
-	if ((zend_call_function(&fiber->fci, &fiber->fci_cache) == SUCCESS) && !EG(exception)) {
-		fiber->value = retval;
+	if (zend_call_function(&fiber->fci, &fiber->fci_cache) == SUCCESS) {
+		if (fiber->value != NULL && !EG(exception)) {
+			ZVAL_ZVAL(fiber->value, &retval, 0, 1);
+		}
 	}
 
 	if (EG(exception)) {
@@ -206,7 +209,7 @@ static zend_object *zend_fiber_object_create(zend_class_entry *ce)
 	zend_fiber *fiber;
 
 	fiber = emalloc(sizeof(zend_fiber));
-	ZEND_SECURE_ZERO(fiber, sizeof(zend_fiber));
+	memset(fiber, 0, sizeof(zend_fiber));
 
 	zend_object_std_init(&fiber->std, ce);
 	fiber->std.handlers = &zend_fiber_handlers;
@@ -217,7 +220,9 @@ static zend_object *zend_fiber_object_create(zend_class_entry *ce)
 
 static void zend_fiber_object_destroy(zend_object *object)
 {
-	zend_fiber *fiber = (zend_fiber *) object;
+	zend_fiber *fiber;
+
+	fiber = (zend_fiber *) object;
 
 	if (fiber->status == ZEND_FIBER_STATUS_SUSPENDED) {
 		fiber->status = ZEND_FIBER_STATUS_DEAD;
@@ -225,8 +230,11 @@ static void zend_fiber_object_destroy(zend_object *object)
 		zend_fiber_switch_to(fiber);
 	}
 
+	if (fiber->status == ZEND_FIBER_STATUS_INIT) {
+		zval_ptr_dtor(&fiber->fci.function_name);
+	}
+
 	zend_fiber_destroy(fiber->context);
-	zval_ptr_dtor(&fiber->fci.function_name);
 
 	zend_object_std_dtor(&fiber->std);
 }
@@ -307,15 +315,11 @@ ZEND_METHOD(Fiber, start)
 	fiber->stack->end = (zval *) ((char *) fiber->stack + fiber->stack_size);
 	fiber->stack->prev = NULL;
 
+	fiber->value = USED_RET() ? return_value : NULL;
+
 	if (!zend_fiber_switch_to(fiber)) {
 		zend_throw_error(NULL, "Failed switching to fiber");
 		return;
-	}
-
-	if (USED_RET()) {
-		RETURN_ZVAL(&fiber->value, 0, 0);
-	} else {
-		zval_ptr_dtor(&fiber->value);
 	}
 }
 /* }}} */
@@ -341,23 +345,17 @@ ZEND_METHOD(Fiber, resume)
 		return;
 	}
 
-	if (val == NULL) {
-		ZVAL_NULL(&fiber->value);
-	} else {
-		ZVAL_COPY(&fiber->value, val);
+	if (val != NULL && fiber->value != NULL) {
+		ZVAL_COPY(fiber->value, val);
+		fiber->value = NULL;
 	}
 
 	fiber->status = ZEND_FIBER_STATUS_RUNNING;
+	fiber->value = USED_RET() ? return_value : NULL;
 
 	if (!zend_fiber_switch_to(fiber)) {
 		zend_throw_error(NULL, "Failed switching to fiber");
 		return;
-	}
-
-	if (USED_RET()) {
-		RETURN_ZVAL(&fiber->value, 0, 0);
-	} else {
-		zval_ptr_dtor(&fiber->value);
 	}
 }
 /* }}} */
@@ -385,6 +383,7 @@ ZEND_METHOD(Fiber, throw)
 	FIBER_G(error) = error;
 
 	fiber->status = ZEND_FIBER_STATUS_RUNNING;
+	fiber->value = USED_RET() ? return_value : NULL;
 
 	if (!zend_fiber_switch_to(fiber)) {
 		zend_throw_error(NULL, "Failed switching to fiber");
@@ -393,12 +392,6 @@ ZEND_METHOD(Fiber, throw)
 
 	if (EG(exception)) {
 		return;
-	}
-
-	if (USED_RET()) {
-		RETURN_ZVAL(&fiber->value, 0, 0);
-	} else {
-		zval_ptr_dtor(&fiber->value);
 	}
 }
 /* }}} */
@@ -431,13 +424,13 @@ ZEND_METHOD(Fiber, yield)
 		Z_PARAM_ZVAL(val);
 	ZEND_PARSE_PARAMETERS_END();
 
-	if (val == NULL) {
-		ZVAL_NULL(&fiber->value);
-	} else {
-		ZVAL_COPY(&fiber->value, val);
+	if (val != NULL && fiber->value != NULL) {
+		ZVAL_COPY(fiber->value, val);
+		fiber->value = NULL;
 	}
 
 	fiber->status = ZEND_FIBER_STATUS_SUSPENDED;
+	fiber->value = USED_RET() ? return_value : NULL;
 
 	ZEND_FIBER_BACKUP_EG(fiber->stack, fiber->stack_size, fiber->exec);
 
@@ -461,16 +454,6 @@ ZEND_METHOD(Fiber, yield)
 		exec->opline++;
 
 		return;
-	}
-
-	if (EG(exception)) {
-		return;
-	}
-
-	if (USED_RET()) {
-		RETURN_ZVAL(&fiber->value, 0, 0);
-	} else {
-		zval_ptr_dtor(&fiber->value);
 	}
 }
 /* }}} */

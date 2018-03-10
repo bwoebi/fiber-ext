@@ -59,8 +59,8 @@ struct _zend_fiber {
 	/* Fiber context of the fiber that called start(), resume() or throw(). */
 	zend_fiber_context caller;
 
-	/* PHP value being passed into or returned from the fiber. */
-	zval value;
+	/* Destination for a PHP value being passed into or returned from the fiber. */
+	zval *value;
 
 	/* Current Zend VM execute data being run by the fiber. */
 	zend_execute_data *exec;
