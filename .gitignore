@@ -15,7 +15,7 @@ tags
 vagrant-*
 Vagrantfile
 
-*.php
+/*.php
 
 .project
 .settings
@@ -36,6 +36,7 @@ Makefile*
 
 tests/*
 !tests/*.phpt
+!tests/include
 
 config*
 !config.[m4,w32]

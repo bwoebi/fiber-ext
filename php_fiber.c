@@ -267,7 +267,11 @@ ZEND_METHOD(Fiber, __construct)
 /* {{{ proto int Fiber::status() */
 ZEND_METHOD(Fiber, status)
 {
+#ifdef ZEND_PARSE_PARAMETERS_NONE
 	ZEND_PARSE_PARAMETERS_NONE();
+#else
+	zend_parse_parameters_none();
+#endif
 
 	zend_fiber *fiber = (zend_fiber *) Z_OBJ_P(getThis());
 
@@ -466,7 +470,11 @@ ZEND_METHOD(Fiber, __wakeup)
 	 * because it is only invoked for C unserialization. For O the error has
 	 * to be thrown in __wakeup. */
 
+#ifdef ZEND_PARSE_PARAMETERS_NONE
 	ZEND_PARSE_PARAMETERS_NONE();
+#else
+	zend_parse_parameters_none();
+#endif
 
 	zend_throw_exception(NULL, "Unserialization of 'Fiber' is not allowed", 0);
 }
