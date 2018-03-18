@@ -33,6 +33,10 @@
 
 #include "fiber.h"
 
+#ifndef ZEND_PARSE_PARAMETERS_NONE
+#define ZEND_PARSE_PARAMETERS_NONE() zend_parse_parameters_none()
+#endif
+
 /* PHP 7.3 compatibility macro {{{*/
 #ifndef ZEND_CLOSURE_OBJECT
 #define ZEND_CLOSURE_OBJECT(func) (zend_object *) func->op_array.prototype
@@ -60,14 +64,14 @@ static PHP_INI_MH(OnUpdateFiberStackSize)
 	OnUpdateLong(entry, new_value, mh_arg1, mh_arg2, mh_arg3, stage);
 
 	if (FIBER_G(stack_size) < 0) {
-		FIBER_G(stack_size) = 4096;
+		FIBER_G(stack_size) = 0;
 	}
 
 	return SUCCESS;
 }
 
 PHP_INI_BEGIN()
-	STD_PHP_INI_ENTRY("fiber.stack_size", "4096", PHP_INI_SYSTEM, OnUpdateFiberStackSize, stack_size, zend_fiber_globals, fiber_globals)
+	STD_PHP_INI_ENTRY("fiber.stack_size", "0", PHP_INI_SYSTEM, OnUpdateFiberStackSize, stack_size, zend_fiber_globals, fiber_globals)
 PHP_INI_END()
 
 
@@ -149,7 +153,7 @@ static void zend_fiber_run()
 	EG(vm_stack) = fiber->stack;
 	EG(vm_stack_top) = fiber->stack->top;
 	EG(vm_stack_end) = fiber->stack->end;
-	EG(vm_stack_page_size) = fiber->stack_size;
+	EG(vm_stack_page_size) = ZEND_FIBER_VM_STACK_SIZE;
 
 	fiber->exec = (zend_execute_data *) EG(vm_stack_top);
 	EG(vm_stack_top) = (zval *) fiber->exec + ZEND_CALL_FRAME_SLOT;
@@ -159,7 +163,11 @@ static void zend_fiber_run()
 	fiber->exec->return_value = NULL;
 	fiber->exec->prev_execute_data = NULL;
 
+	EG(current_execute_data) = fiber->exec;
+
 	execute_ex(fiber->exec);
+
+	fiber->value = NULL;
 
 	zval_ptr_dtor(&fiber->fci.function_name);
 
@@ -211,6 +219,11 @@ static zend_object *zend_fiber_object_create(zend_class_entry *ce)
 	fiber = emalloc(sizeof(zend_fiber));
 	memset(fiber, 0, sizeof(zend_fiber));
 
+#if ZEND_FIBER_DEBUG
+	fiber->id = FIBER_G(fiber_id) + 1;
+	FIBER_G(fiber_id) = fiber->id;
+#endif
+
 	zend_object_std_init(&fiber->std, ce);
 	fiber->std.handlers = &zend_fiber_handlers;
 
@@ -255,6 +268,10 @@ ZEND_METHOD(Fiber, __construct)
 		Z_PARAM_LONG(stack_size)
 	ZEND_PARSE_PARAMETERS_END();
 
+	if (stack_size == 0) {
+		stack_size = 4096 * (((sizeof(void *)) < 8) ? 16 : 128);
+	}
+
 	fiber->status = ZEND_FIBER_STATUS_INIT;
 	fiber->stack_size = stack_size;
 
@@ -267,11 +284,7 @@ ZEND_METHOD(Fiber, __construct)
 /* {{{ proto int Fiber::status() */
 ZEND_METHOD(Fiber, status)
 {
-#ifdef ZEND_PARSE_PARAMETERS_NONE
 	ZEND_PARSE_PARAMETERS_NONE();
-#else
-	zend_parse_parameters_none();
-#endif
 
 	zend_fiber *fiber = (zend_fiber *) Z_OBJ_P(getThis());
 
@@ -314,16 +327,15 @@ ZEND_METHOD(Fiber, start)
 		return;
 	}
 
-	fiber->stack = (zend_vm_stack) emalloc(fiber->stack_size);
+	fiber->stack = (zend_vm_stack) emalloc(ZEND_FIBER_VM_STACK_SIZE);
 	fiber->stack->top = ZEND_VM_STACK_ELEMENTS(fiber->stack) + 1;
-	fiber->stack->end = (zval *) ((char *) fiber->stack + fiber->stack_size);
+	fiber->stack->end = (zval *) ((char *) fiber->stack + ZEND_FIBER_VM_STACK_SIZE);
 	fiber->stack->prev = NULL;
 
 	fiber->value = USED_RET() ? return_value : NULL;
 
 	if (!zend_fiber_switch_to(fiber)) {
 		zend_throw_error(NULL, "Failed switching to fiber");
-		return;
 	}
 }
 /* }}} */
@@ -359,7 +371,6 @@ ZEND_METHOD(Fiber, resume)
 
 	if (!zend_fiber_switch_to(fiber)) {
 		zend_throw_error(NULL, "Failed switching to fiber");
-		return;
 	}
 }
 /* }}} */
@@ -377,12 +388,12 @@ ZEND_METHOD(Fiber, throw)
 
 	fiber = (zend_fiber *) Z_OBJ_P(getThis());
 
-	Z_TRY_ADDREF_P(error);
-
 	if (fiber->status != ZEND_FIBER_STATUS_SUSPENDED) {
 		zend_throw_exception_object(error);
 		return;
 	}
+
+	Z_ADDREF_P(error);
 
 	FIBER_G(error) = error;
 
@@ -391,11 +402,6 @@ ZEND_METHOD(Fiber, throw)
 
 	if (!zend_fiber_switch_to(fiber)) {
 		zend_throw_error(NULL, "Failed switching to fiber");
-		return;
-	}
-
-	if (EG(exception)) {
-		return;
 	}
 }
 /* }}} */
@@ -406,6 +412,7 @@ ZEND_METHOD(Fiber, yield)
 {
 	zend_fiber *fiber;
 	zend_execute_data *exec;
+	size_t stack_page_size;
 	zval *val;
 	zval *error;
 
@@ -436,11 +443,11 @@ ZEND_METHOD(Fiber, yield)
 	fiber->status = ZEND_FIBER_STATUS_SUSPENDED;
 	fiber->value = USED_RET() ? return_value : NULL;
 
-	ZEND_FIBER_BACKUP_EG(fiber->stack, fiber->stack_size, fiber->exec);
+	ZEND_FIBER_BACKUP_EG(fiber->stack, stack_page_size, fiber->exec);
 
 	zend_fiber_switch_context(fiber->context, fiber->caller);
 
-	ZEND_FIBER_RESTORE_EG(fiber->stack, fiber->stack_size, fiber->exec);
+	ZEND_FIBER_RESTORE_EG(fiber->stack, stack_page_size, fiber->exec);
 
 	if (fiber->status == ZEND_FIBER_STATUS_DEAD) {
 		zend_throw_error(NULL, "Fiber has been destroyed");
@@ -456,8 +463,6 @@ ZEND_METHOD(Fiber, yield)
 		exec->opline--;
 		zend_throw_exception_internal(error);
 		exec->opline++;
-
-		return;
 	}
 }
 /* }}} */
@@ -470,11 +475,7 @@ ZEND_METHOD(Fiber, __wakeup)
 	 * because it is only invoked for C unserialization. For O the error has
 	 * to be thrown in __wakeup. */
 
-#ifdef ZEND_PARSE_PARAMETERS_NONE
 	ZEND_PARSE_PARAMETERS_NONE();
-#else
-	zend_parse_parameters_none();
-#endif
 
 	zend_throw_exception(NULL, "Unserialization of 'Fiber' is not allowed", 0);
 }

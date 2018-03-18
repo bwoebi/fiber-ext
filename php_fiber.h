@@ -29,6 +29,14 @@ extern zend_module_entry fiber_module_entry;
 ZEND_TSRMLS_CACHE_EXTERN()
 #endif
 
+#define ZEND_FIBER_DEBUG 0
+
+#if ZEND_FIBER_DEBUG
+#define ZEND_FIBER_PRINT(fiber, message) printf("[%d] %s\n", (int) fiber->id, message)
+#else
+#define ZEND_FIBER_PRINT(fiber, message)
+#endif
+
 static const zend_uchar ZEND_FIBER_STATUS_INIT = 0;
 static const zend_uchar ZEND_FIBER_STATUS_SUSPENDED = 1;
 static const zend_uchar ZEND_FIBER_STATUS_RUNNING = 2;
@@ -38,6 +46,8 @@ static const zend_uchar ZEND_FIBER_STATUS_DEAD = 4;
 #define REGISTER_FIBER_CLASS_CONST_LONG(const_name, value) \
 	zend_declare_class_constant_long(zend_ce_fiber, const_name, sizeof(const_name)-1, (zend_long)value);
 
+#define ZEND_FIBER_VM_STACK_SIZE 4096
+
 typedef void* zend_fiber_context;
 
 typedef struct _zend_fiber zend_fiber;
@@ -45,6 +55,11 @@ typedef struct _zend_fiber zend_fiber;
 struct _zend_fiber {
 	/* Fiber PHP object handle. */
 	zend_object std;
+
+#if ZEND_FIBER_DEBUG
+	/* Numeric ID being assigned to identify fibers in debug output. */
+	size_t id;
+#endif
 
 	/* Status of the fiber, one of the ZEND_FIBER_STATUS_* constants. */
 	zend_uchar status;
@@ -65,8 +80,10 @@ struct _zend_fiber {
 	/* Current Zend VM execute data being run by the fiber. */
 	zend_execute_data *exec;
 
-	/* VM stack and stack size being used by the fiber. */
+	/* VM stack being used by the fiber. */
 	zend_vm_stack stack;
+
+	/* Max size of the C stack being used by the fiber. */
 	size_t stack_size;
 };
 
@@ -77,11 +94,16 @@ ZEND_BEGIN_MODULE_GLOBALS(fiber)
 	/* Active fiber, NULL when in main thread. */
 	zend_fiber *current_fiber;
 
-	/* Default fiber stack size. */
+	/* Default fiber C stack size. */
 	zend_long stack_size;
 
 	/* Error to be thrown into a fiber (will be populated by throw()). */
 	zval *error;
+
+#if ZEND_FIBER_DEBUG
+	/* Thread-local counter being used to assign fiber identifiers. */
+	size_t fiber_id;
+#endif
 ZEND_END_MODULE_GLOBALS(fiber)
 
 #define FIBER_G(v) ZEND_MODULE_GLOBALS_ACCESSOR(fiber, v)

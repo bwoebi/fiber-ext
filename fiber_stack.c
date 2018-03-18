@@ -45,8 +45,6 @@ zend_bool zend_fiber_stack_allocate(zend_fiber_stack *stack, unsigned int size)
 
 	void *pointer;
 
-	stack->size *= (sizeof(void *) >> 1);
-
 	msize = stack->size + ZEND_FIBER_GUARDPAGES * page_size;
 	pointer = mmap(0, msize, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 

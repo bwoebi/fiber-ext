@@ -11,12 +11,12 @@ if (!extension_loaded('fiber')) {
 $f = new Fiber(function ($a) {
     Fiber::yield($a);
 });
-$f->start();
+
+try {
+    $f->start();
+} catch (ArgumentCountError $e) {
+    echo $e->getMessage();
+}
 ?>
 --EXPECTF--
-Fatal error: Uncaught ArgumentCountError: Too few arguments to function {closure}(), 0 passed and exactly 1 expected in %s/tests/020-start-with-too-few-arguments.php:2
-Stack trace:
-#0 [internal function]: {closure}()
-#1 %s/tests/020-start-with-too-few-arguments.php(5): Fiber->start()
-#2 {main}
-  thrown in %s/tests/020-start-with-too-few-arguments.php on line 2
+Too few arguments to function {closure}(), 0 passed and exactly 1 expected
