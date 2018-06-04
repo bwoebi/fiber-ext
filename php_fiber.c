@@ -559,7 +559,11 @@ PHP_MINIT_FUNCTION(fiber)
 	zend_ce_fiber->serialize = zend_class_serialize_deny;
 	zend_ce_fiber->unserialize = zend_class_unserialize_deny;
 
+#if PHP_VERSION_ID >= 70300
+	memcpy(&zend_fiber_handlers, &std_object_handlers, sizeof(zend_object_handlers));
+#else
 	memcpy(&zend_fiber_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
+#endif
 	zend_fiber_handlers.free_obj = zend_fiber_object_destroy;
 	zend_fiber_handlers.clone_obj = NULL;
 
